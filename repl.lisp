@@ -24,6 +24,7 @@
 (defvar *hist-file*    "~/.sbcli_history")
 (defvar *last-result*  nil)
 (defvar *hist*         (list))
+(defvar *pygmentize*   nil)
 (declaim (special *special*))
 
 (defun read-hist-file ()
@@ -138,7 +139,25 @@
                lst)))
       (select-completions (get-all-symbols))))
 
+(defun maybe-highlight (str)
+  (if *pygmentize*
+    (with-input-from-string (s str)
+      (let ((proc (sb-ext:run-program "/usr/local/bin/pygmentize"
+                                      (list "-s" "-l" "lisp")
+                                      :input s
+                                      :output :stream)))
+         (read-line (sb-ext:process-output proc) nil "")))
+    str))
+
+(defun syntax-hl ()
+  (let ((res (maybe-highlight rl:*line-buffer*)))
+    (format t "~c[2K~c~a~a~c[~aD" #\esc #\return rl:*display-prompt* res #\esc (- rl:+end+ rl:*point*))
+    (when (= rl:+end+ rl:*point*)
+      (format t "~c[1C" #\esc))
+    (finish-output)))
+
 (rl:register-function :complete #'custom-complete)
+(rl:register-function :redisplay #'syntax-hl)
 
 (defvar *special*
   (alexandria:alist-hash-table
@@ -188,7 +207,9 @@
                         (error (condition)
                           (format *error-output* "Evaluation error: ~a~%" condition))))
               (add-res text *last-result*)
-              (if *last-result* (format t "~a~a~%" *ret* *last-result*)))))))
+              (if *last-result*
+                (let ((fmt (maybe-highlight (format nil "~a" *last-result*))))
+                  (format t "~a~a~%" *ret* fmt))))))))
     (in-package :sbcli)
     (finish-output nil)
     (sbcli "" *prompt*)))
