@@ -1,26 +1,19 @@
 # sbcli
 
-A better REPL for SBCL. It handles errors greacefully, is not too verbose,
-and has readline capabilities, including multiline input and reset.
+roswell installable version of hellerve/sbcli
 
 ## Installation
 
-For most cases, calling `./install.sh` should suffice. It will
-install `sbcli` into `/usr/local/bin`. If you are using Mac and having
-issues with `cl-readline` see the [installation notes for
-cl-readline](https://github.com/mrkkrp/cl-readline#installation).
+```
+ros install roswell/sbcli
+```
 
 ## Dependencies
 
-`sbcli` depends on [Quicklisp](http://quicklisp.org/) and
-[cl-readline](https://github.com/mrkkrp/cl-readline).
-If you have Quicklisp installed, cl-readline will be installed
-on `sbcli`s first launch. `sbcli` assumes that Quicklisp is
-installed under `~/quicklisp`.
 
 ## Usage
 
-You should be able to launch `sbcli` by just typing `sbcli`. Once you’re in the
+You should be able to launch `sbcli` by just typing `ros repl`. Once you’re in the
 REPL, you can edit normally with readline capabilities. Hitting tab will
 autocomplete (note that if there is more than one possibility, you’ll have to
 hit tab twice).
@@ -50,12 +43,7 @@ break if your result contains newlines. Use at your own peril for now!
 
 ## Customization
 
-If you want you can add customizations to `sbcli`. On startup
-it will load a file called `.sbclirc` in your home directory
-if it exists. You can execute arbitrary code there, two of
-the more interesting values to set are `*prompt*` and `*ret*`.
-Check out an example resource file
-[here](https://github.com/hellerve/sbcli/blob/master/examples/.sbclirc).
+TBD
 
 <hr/>
 

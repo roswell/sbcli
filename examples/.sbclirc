@@ -1,5 +1,0 @@
-(setf *prompt*    "hi> ")
-(setf *prompt2*   "nested> ")
-(setf *ret*       "=>")
-(setf *repl-name* "My Super Custom REPL")
-(setf *hist-file* "~/.x") ; set to empty string or nil to disable

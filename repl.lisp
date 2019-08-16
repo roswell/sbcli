@@ -1,19 +1,13 @@
-#!/usr/bin/env -S sbcl --script
-(load "~/quicklisp/setup")
-
-(let ((*standard-output* (make-broadcast-stream)))
-  (ql:quickload "alexandria")
-  (ql:quickload "cl-readline"))
-
-(defpackage :sbcli
-  (:use :common-lisp :cffi)
-  (:export sbcli *repl-version* *repl-name* *prompt* *prompt2* *ret* *config-file*
-           *hist-file* *special* *last-result*))
-
-(defpackage :sbcli-user
-  (:use :common-lisp :sbcli))
-
-(in-package :sbcli)
+(uiop/package:define-package :sbcli/repl (:nicknames) (:use :cl :cffi)
+                             (:shadow) (:import-from :alexandria)
+                             (:import-from :cl-readline)
+                             (:export :sbcli :*repl-version* :*repl-name*
+                              :*prompt* :*prompt2* :*ret* :*config-file*
+                              :*hist-file* :*special* :*last-result*
+                              :main)
+                             (:intern))
+(in-package :sbcli/repl)
+;;don't edit above
 
 (defvar *repl-version* "0.1.3")
 (defvar *repl-name*    "Veit's REPL for SBCL")
@@ -29,11 +23,11 @@
 (defun read-hist-file ()
   (with-open-file (in *hist-file* :if-does-not-exist :create)
     (loop for line = (read-line in nil nil)
-      while line
-      ; hack because cl-readline has no function for this. sorry.
-      do (cffi:foreign-funcall "add_history"
-                               :string line
-                               :void))))
+          while line
+          ; hack because cl-readline has no function for this. sorry.
+          do (cffi:foreign-funcall "add_history"
+                                   :string line
+                                   :void))))
 
 (defun update-hist-file (str)
   (with-open-file (out *hist-file*
@@ -42,16 +36,17 @@
                        :if-does-not-exist :create)
     (format out "~a~%" str)))
 
+
 (defun end ()
   "Ends the session"
   (format t "Bye for now.~%")
-  (sb-ext:quit))
+  (ros:quit))
 
 (defun reset ()
   "Resets the session environment"
-  (delete-package 'sbcli)
-  (defpackage :sbcli (:use :common-lisp))
-  (in-package :sbcli))
+  (delete-package :sbcli/repl)
+  (defpackage :sbcli/repl (:use :common-lisp))
+  (in-package :sbcli/repl))
 
 (defun split (str chr)
   (loop for i = 0 then (1+ j)
@@ -71,10 +66,10 @@
 (defun write-to-file (fname)
   "Writes the current session to a file <filename>"
   (with-open-file (file fname
-                       :direction :output
-                       :if-exists :supersede
-                       :if-does-not-exist :create)
-    (format file "~{~/sbcli:format-output/~^~%~}" (reverse *hist*))))
+                        :direction :output
+                        :if-exists :supersede
+                        :if-does-not-exist :create)
+    (format file "~{~/sbcli/repl:format-output/~^~%~}" (reverse *hist*))))
 
 (defun help (sym)
   "Gets help on a symbol <sym>"
@@ -86,19 +81,19 @@
   (format t "~a version ~a~%" *repl-name* *repl-version*)
   (format t "Special commands:~%")
   (maphash
-    (lambda (k v) (format t "  :~a: ~a~%" k (documentation (cdr v) t)))
-    *special*)
+   (lambda (k v) (format t "  :~a: ~a~%" k (documentation (cdr v) t)))
+   *special*)
   (format t "Currently defined:~%")
   (do-all-symbols (s *package*)
     (when (and (or (fboundp s) (boundp s)) (eql (symbol-package s) *package*))
       (let ((what (if (fboundp s) 'function 'variable)))
         (format t " ~a: ~a (~a) ~a~%" (string-downcase (string s))
-                                      (or (documentation s what)
-                                          "No documentation")
-                                      what
-                                      (if (boundp s)
-                                        (format nil "(value ~a)" (eval s))
-                                        ""))))))
+                (or (documentation s what)
+                    "No documentation")
+                what
+                (if (boundp s)
+                    (format nil "(value ~a)" (eval s))
+                    ""))))))
 
 (defun dump-disasm (sym)
   "Dumps the disassembly of a symbol <sym>"
@@ -138,8 +133,6 @@
                lst)))
       (select-completions (get-all-symbols))))
 
-(rl:register-function :complete #'custom-complete)
-
 (defvar *special*
   (alexandria:alist-hash-table
     `(("h" . (1 . ,#'help))
@@ -154,7 +147,7 @@
           (rl:readline :prompt (if (functionp p) (funcall p) p)
                        :add-history t
                        :novelty-check #'novelty-check)))
-    (in-package :sbcli-user)
+    (in-package :sbcli/user)
     (if (not text) (end))
     (if (string= text "") (sbcli "" *prompt*))
     (when *hist-file* (update-hist-file text))
@@ -189,18 +182,21 @@
                           (format *error-output* "Evaluation error: ~a~%" condition))))
               (add-res text *last-result*)
               (if *last-result* (format t "~a~a~%" *ret* *last-result*)))))))
-    (in-package :sbcli)
+    (in-package :sbcli/repl)
     (finish-output nil)
     (sbcli "" *prompt*)))
 
-(if (probe-file *config-file*)
-  (load *config-file*))
+(defun main ()
+  (rl:register-function :complete #'custom-complete)
 
-(format t "~a version ~a~%" *repl-name* *repl-version*)
-(format t "Press CTRL-C or CTRL-D or type :q to exit~%~%")
-(finish-output nil)
+  (if (probe-file *config-file*)
+      (load *config-file*))
 
-(when *hist-file* (read-hist-file))
+  (format t "~a version ~a~%" *repl-name* *repl-version*)
+  (format t "Press CTRL-C or CTRL-D or type :q to exit~%~%")
+  (finish-output nil)
 
-(handler-case (sbcli "" *prompt*)
-  (sb-sys:interactive-interrupt () (end)))
+  (when *hist-file* (read-hist-file))
+
+  (handler-case (sbcli "" *prompt*)
+    (sb-sys:interactive-interrupt () (end))))
